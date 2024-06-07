@@ -113,6 +113,7 @@ private:
 	int				m_varViewportFix;
 	int				m_varRenderFrame;
 	int				m_varAnisotropy;
+	int				m_varStencilBits;
 	int				m_varMultisample;
 	int				m_varMultisampleHint;
 	int				m_varBloomEnable;
@@ -152,6 +153,9 @@ private:
 	QFXShader*		m_pDOFDepthShader;
 	QFXShader*		m_pDOFRenderShader;
 	QFXShader*		m_pVignetteShader;
+
+	//emulator
+	int		m_emulateD3DX;
 };
 
 #endif //QFX_RENDERER_H

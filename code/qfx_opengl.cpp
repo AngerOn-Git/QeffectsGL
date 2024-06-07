@@ -20,6 +20,7 @@
 #include "qfx_library.hpp"
 #include "qfx_log.hpp"
 #include "qfx_opengl.hpp"
+#include "qfx_settings.hpp"
 
 //=========================================
 // OpenGL Wrapping Functions
@@ -424,8 +425,16 @@ bool Initialize()
 {
 	char szSystemLibrary[1024];
 
-	GetSystemDirectory( szSystemLibrary, sizeof( szSystemLibrary ) );
-	strcat_s( szSystemLibrary, "\\opengl32.dll" );
+	int emulateD3DX = QFXSettings::Instance().GetInteger("d3dx", 0);
+
+	if (emulateD3DX > 0) {
+		GetCurrentDirectory(sizeof(szSystemLibrary) - 1, szSystemLibrary);
+		strcat_s(szSystemLibrary, "\\opengl32_DX.dll");
+	}
+	else {
+		GetSystemDirectory(szSystemLibrary, sizeof(szSystemLibrary));
+		strcat_s(szSystemLibrary, "\\opengl32.dll");
+	}
 
 	QFXLog::Instance().Printf( "Loading \"%s\": ", szSystemLibrary );
 	hOpenGLDll = LoadLibrary( szSystemLibrary );

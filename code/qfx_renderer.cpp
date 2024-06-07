@@ -72,12 +72,14 @@ QFXRenderer :: QFXRenderer()
 	m_iTextureInit = 0;
 
 	m_varDebug = QFXSettings::Instance().GetInteger( "Debug", 0 );
+	m_emulateD3DX = QFXSettings::Instance().GetInteger("d3dx", 0);
 	m_varExtensionLimit = QFXSettings::Instance().GetInteger( "ExtensionLimit", 0 );
 	m_varCompareMode = QFXSettings::Instance().GetInteger( "CompareMode", 0 );
 	m_varZTrickFix = QFXSettings::Instance().GetInteger( "ZTrickFix", 0 );
 	m_varViewportFix = QFXSettings::Instance().GetInteger( "ViewportFix", 0 );
 	m_varRenderFrame = QFXSettings::Instance().GetInteger( "RenderFrame", -1 );
 	m_varAnisotropy = QFXSettings::Instance().GetInteger( "Anisotropy", 8 );
+	m_varStencilBits = QFXSettings::Instance().GetInteger("StencilBits", 0);
 	m_varMultisample = QFXSettings::Instance().GetInteger( "Multisample", 4 );
 	m_varMultisampleHint = QFXSettings::Instance().GetInteger( "MultisampleHint", 0 );
 	m_varBloomEnable = QFXSettings::Instance().GetInteger( "Bloom", 1 );
@@ -219,6 +221,7 @@ int QFXRenderer :: ChooseMultisamplePixelFormat( int fmt, HDC, const PIXELFORMAT
 	UINT numFormats;
 	float fAttributes[] = { 0, 0 };
 
+	int originalMultisample = m_varMultisample;
 	while ( m_varMultisample >= 2 ) {
 		int iAttributes[] = {
 			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
@@ -228,7 +231,7 @@ int QFXRenderer :: ChooseMultisamplePixelFormat( int fmt, HDC, const PIXELFORMAT
 			WGL_COLOR_BITS_ARB, ppfd->cColorBits,
 			WGL_ALPHA_BITS_ARB, ppfd->cAlphaBits,
 			WGL_DEPTH_BITS_ARB, ( ppfd->cDepthBits > 16 ) ? 24 : 16,
-			WGL_STENCIL_BITS_ARB, ppfd->cStencilBits,
+			WGL_STENCIL_BITS_ARB, m_varStencilBits,
 			WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
 			WGL_SAMPLE_BUFFERS_ARB, GL_TRUE,
 			WGL_SAMPLES_ARB, m_varMultisample,
@@ -245,7 +248,26 @@ int QFXRenderer :: ChooseMultisamplePixelFormat( int fmt, HDC, const PIXELFORMAT
 			m_varMultisample -= 2;
 	}
 
-	if ( m_varMultisample >= 2 ) {
+	if (m_emulateD3DX > 1 && originalMultisample < 2) {
+		int iAttributes[] = {
+			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+			WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+			WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+			WGL_COLOR_BITS_ARB, ppfd->cColorBits,
+			WGL_ALPHA_BITS_ARB, ppfd->cAlphaBits,
+			WGL_DEPTH_BITS_ARB, (ppfd->cDepthBits > 16) ? 24 : 16,
+			WGL_STENCIL_BITS_ARB, m_varStencilBits,
+			WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+			WGL_SAMPLE_BUFFERS_ARB, GL_TRUE,
+			WGL_SAMPLES_ARB, originalMultisample,
+			0,0 };
+
+		if (!qwglChoosePixelFormatARB(tempDC, iAttributes, fAttributes, 1, &pixelFormat, &numFormats) && numFormats)
+		QFXLog::Instance().Warning("Wrapper problem...");
+		pixelFormat = -1;
+	}
+	else if ( m_varMultisample >= 2 ) {
 		QFXLog::Instance().Printf( "Using %ix FSAA\n", m_varMultisample );
 	} else {
 		QFXLog::Instance().Warning( "FSAA is not supported by hardware\n" );
@@ -267,6 +289,13 @@ BOOL QFXRenderer :: OnSetPixelFormat( HDC hdc, int pixelformat, const PIXELFORMA
 	else
 		gl::wglDescribePixelFormat( hdc, pixelformat, sizeof(PIXELFORMATDESCRIPTOR), &pfd );
 
+	pfd.cStencilBits = m_varStencilBits;
+	/*
+	if (m_emulateD3DX > 0) {
+		int pixelFormat_local = ChoosePixelFormat(hdc, &pfd);
+		return gl::wglSetPixelFormat(hdc, pixelFormat_local, &pfd);
+	}*/
+
 	if ( ( ppfd->cColorBits > 0 ) && ( ppfd->dwFlags & PFD_DOUBLEBUFFER ) && ( m_varMultisample > 1 ) ) {
 		int multisamplePixelFormat = ChooseMultisamplePixelFormat( pixelformat, hdc, &pfd );
 		if ( multisamplePixelFormat >= 0 ) {
@@ -276,6 +305,20 @@ BOOL QFXRenderer :: OnSetPixelFormat( HDC hdc, int pixelformat, const PIXELFORMA
 				return b;
 			}
 		}
+	}
+	else if (m_emulateD3DX > 1) {
+		int multisamplePixelFormat = ChooseMultisamplePixelFormat(pixelformat, hdc, &pfd);
+		if (multisamplePixelFormat >= 0) {
+			BOOL b = gl::wglSetPixelFormat(hdc, multisamplePixelFormat, &pfd);
+			if (b) {
+				m_bMultisample = GL_TRUE;
+				return b;
+			}
+		}
+	}
+	else if (m_varStencilBits > 0) {
+		int pixelFormat_local = ChoosePixelFormat(hdc, &pfd);
+		return gl::wglSetPixelFormat(hdc, pixelFormat_local, &pfd);
 	}
 
 	return gl::wglSetPixelFormat( hdc, pixelformat, ppfd );
