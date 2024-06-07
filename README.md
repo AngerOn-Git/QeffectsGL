@@ -1,4 +1,8 @@
 # QeffectsGL
+**Modified (2024)**
+Support for opengl API wrappers, setting: "d3dx=0" or "d3dx=1"
+File: "opengl32_DX.dll"
+
 **Version 1.3 (November 2016)**
 
 OpenGL pseudo-driver (wrapper) that adds some graphical enhancements to OpenGL-based games. You should place `opengl32.dll` and `QeffectsGL.ini` to the game executable's directory before running the game. If the game has multiple renderers available (e.g. Half-Life, Unreal), OpenGL renderer must be switched to.
