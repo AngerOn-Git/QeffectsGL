@@ -1,5 +1,6 @@
 # QeffectsGL
 **Modified (2024)**
+
 Support for opengl API wrappers, setting: "d3dx=0" or "d3dx=1"
 File: "opengl32_DX.dll"
 
